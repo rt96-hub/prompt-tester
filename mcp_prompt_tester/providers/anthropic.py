@@ -1,6 +1,6 @@
 """Anthropic provider implementation."""
 
-import os
+import time
 from typing import Dict, Any, Optional
 
 import anthropic
@@ -55,7 +55,10 @@ class AnthropicProvider(ProviderBase):
                     request_params[key] = value
             
             # Make the API call
+            start_time = time.time()
             response = self.client.messages.create(**request_params)
+            end_time = time.time()
+            response_time = end_time - start_time
             
             # Get the generated text
             content_blocks = [block for block in response.content if block.type == "text"]
@@ -73,6 +76,7 @@ class AnthropicProvider(ProviderBase):
                     "output_tokens": response.usage.output_tokens,
                 },
                 "stop_reason": response.stop_reason,
+                "response_time": response_time,
             }
             
             return result

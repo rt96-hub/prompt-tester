@@ -111,12 +111,16 @@ async def main():
                         print("\nOpenAI Response:")
                         print(f"Model: {parsed.get('model', 'unknown')}")
                         print(f"Provider: {parsed.get('provider', 'unknown')}")
+                        print(f"Response Time: {parsed.get('response_time', 0):.3f} seconds")
                         print(f"\nResponse text:\n{parsed.get('response', '')}")
                         
                         # Print usage info if available
                         if parsed.get("usage"):
                             print("\nUsage statistics:")
-                            print(json.dumps(parsed["usage"], indent=2))
+                            usage = parsed["usage"]
+                            print(f"  Prompt Tokens: {usage.get('prompt_tokens', 0)}")
+                            print(f"  Completion Tokens: {usage.get('completion_tokens', 0)}")
+                            print(f"  Total Tokens: {usage.get('total_tokens', 0)}")
                 else:
                     print("No response from OpenAI or error parsing response")
             except Exception as e:
@@ -142,12 +146,15 @@ async def main():
                         print("\nAnthropic Response:")
                         print(f"Model: {parsed.get('model', 'unknown')}")
                         print(f"Provider: {parsed.get('provider', 'unknown')}")
+                        print(f"Response Time: {parsed.get('response_time', 0):.3f} seconds")
                         print(f"\nResponse text:\n{parsed.get('response', '')}")
                         
                         # Print usage info if available
                         if parsed.get("usage"):
                             print("\nUsage statistics:")
-                            print(json.dumps(parsed["usage"], indent=2))
+                            usage = parsed["usage"]
+                            print(f"  Input Tokens: {usage.get('input_tokens', 0)}")
+                            print(f"  Output Tokens: {usage.get('output_tokens', 0)}")
                 else:
                     print("No response from Anthropic or error parsing response")
             except Exception as e:

@@ -1,6 +1,6 @@
 """OpenAI provider implementation."""
 
-import os
+import time
 from typing import Dict, Any, Optional
 
 import openai
@@ -55,7 +55,10 @@ class OpenAIProvider(ProviderBase):
                     request_params[key] = value
             
             # Make the API call
+            start_time = time.time()
             response = self.client.chat.completions.create(**request_params)
+            end_time = time.time()
+            response_time = end_time - start_time
             
             # Get the generated text
             generated_text = response.choices[0].message.content
@@ -70,6 +73,7 @@ class OpenAIProvider(ProviderBase):
                     "total_tokens": response.usage.total_tokens,
                 },
                 "finish_reason": response.choices[0].finish_reason,
+                "response_time": response_time,
             }
             
             return result
