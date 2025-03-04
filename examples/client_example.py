@@ -170,7 +170,7 @@ async def main():
                             print("\nCosts:")
                             costs = parsed["costs"]
                             print(f"  Input Cost: {costs.get('input_cost', 0):.6f}")
-                            print(f"  Output Cost: $`{costs.get('output_cost', 0):.6f}")
+                            print(f"  Output Cost: {costs.get('output_cost', 0):.6f}")
                             print(f"  Total Cost: {costs.get('total_cost', 0):.6f}")
 
                 else:
