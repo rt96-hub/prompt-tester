@@ -94,13 +94,15 @@ async def main():
             # Test an OpenAI prompt
             print("\nTesting OpenAI prompt...")
             try:
-                openai_result = await session.call_tool("test_prompt", {
-                    "provider": "openai",
-                    "model": "gpt-4o-mini",
-                    "system_prompt": "You are a helpful assistant that speaks like a pirate.",
-                    "user_prompt": "Tell me about the weather today.",
-                    "temperature": 0.9,
-                    "max_tokens": 150
+                openai_result = await session.call_tool("compare_prompts", {
+                    "comparisons": [{
+                        "provider": "openai",
+                        "model": "gpt-4o-mini",
+                        "system_prompt": "You are a helpful assistant that speaks like a pirate.",
+                        "user_prompt": "Tell me about the weather today.",
+                        "temperature": 0.9,
+                        "max_tokens": 150
+                    }]
                 })
                 
                 parsed = parse_response(openai_result)
@@ -108,24 +110,27 @@ async def main():
                     if parsed.get("isError", False):
                         print(f"Error: {parsed.get('error', 'Unknown error')}")
                     else:
+                        # Extract the first result since we're only using one comparison
+                        result = parsed.get("results", [])[0]
+                        
                         print("\nOpenAI Response:")
-                        print(f"Model: {parsed.get('model', 'unknown')}")
-                        print(f"Provider: {parsed.get('provider', 'unknown')}")
-                        print(f"Response Time: {parsed.get('response_time', 0):.3f} seconds")
-                        print(f"\nResponse text:\n{parsed.get('response', '')}")
+                        print(f"Model: {result.get('model', 'unknown')}")
+                        print(f"Provider: {result.get('provider', 'unknown')}")
+                        print(f"Response Time: {result.get('response_time', 0):.3f} seconds")
+                        print(f"\nResponse text:\n{result.get('response', '')}")
                         
                         # Print usage info if available
-                        if parsed.get("usage"):
+                        if result.get("usage"):
                             print("\nUsage statistics:")
-                            usage = parsed["usage"]
+                            usage = result["usage"]
                             print(f"  Prompt Tokens: {usage.get('prompt_tokens', 0)}")
                             print(f"  Completion Tokens: {usage.get('completion_tokens', 0)}")
                             print(f"  Total Tokens: {usage.get('total_tokens', 0)}")
 
                         # Print costs if available
-                        if parsed.get("costs"):
+                        if result.get("costs"):
                             print("\nCosts:")
-                            costs = parsed["costs"]
+                            costs = result["costs"]
                             print(f"  Input Cost: {costs.get('input_cost', 0):.6f}")
                             print(f"  Output Cost: {costs.get('output_cost', 0):.6f}")
                             print(f"  Total Cost: {costs.get('total_cost', 0):.6f}")
@@ -138,13 +143,15 @@ async def main():
             # Test an Anthropic prompt
             print("\nTesting Anthropic prompt...")
             try:
-                anthropic_result = await session.call_tool("test_prompt", {
-                    "provider": "anthropic",
-                    "model": "claude-3-5-haiku-20241022",
-                    "system_prompt": "You are a helpful assistant that explains complex topics simply.",
-                    "user_prompt": "Explain quantum computing to a 10-year old.",
-                    "temperature": 0.7,
-                    "max_tokens": 200
+                anthropic_result = await session.call_tool("compare_prompts", {
+                    "comparisons": [{
+                        "provider": "anthropic",
+                        "model": "claude-3-5-haiku-20241022",
+                        "system_prompt": "You are a helpful assistant that explains complex topics simply.",
+                        "user_prompt": "Explain quantum computing to a 10-year old.",
+                        "temperature": 0.7,
+                        "max_tokens": 200
+                    }]
                 })
                 
                 parsed = parse_response(anthropic_result)
@@ -152,23 +159,26 @@ async def main():
                     if parsed.get("isError", False):
                         print(f"Error: {parsed.get('error', 'Unknown error')}")
                     else:
+                        # Extract the first result since we're only using one comparison
+                        result = parsed.get("results", [])[0]
+                        
                         print("\nAnthropic Response:")
-                        print(f"Model: {parsed.get('model', 'unknown')}")
-                        print(f"Provider: {parsed.get('provider', 'unknown')}")
-                        print(f"Response Time: {parsed.get('response_time', 0):.3f} seconds")
-                        print(f"\nResponse text:\n{parsed.get('response', '')}")
+                        print(f"Model: {result.get('model', 'unknown')}")
+                        print(f"Provider: {result.get('provider', 'unknown')}")
+                        print(f"Response Time: {result.get('response_time', 0):.3f} seconds")
+                        print(f"\nResponse text:\n{result.get('response', '')}")
                         
                         # Print usage info if available
-                        if parsed.get("usage"):
+                        if result.get("usage"):
                             print("\nUsage statistics:")
-                            usage = parsed["usage"]
+                            usage = result["usage"]
                             print(f"  Input Tokens: {usage.get('input_tokens', 0)}")
                             print(f"  Output Tokens: {usage.get('output_tokens', 0)}")
 
                         # Print costs if available
-                        if parsed.get("costs"):
+                        if result.get("costs"):
                             print("\nCosts:")
-                            costs = parsed["costs"]
+                            costs = result["costs"]
                             print(f"  Input Cost: {costs.get('input_cost', 0):.6f}")
                             print(f"  Output Cost: {costs.get('output_cost', 0):.6f}")
                             print(f"  Total Cost: {costs.get('total_cost', 0):.6f}")

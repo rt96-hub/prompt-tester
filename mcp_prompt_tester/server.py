@@ -9,7 +9,7 @@ from mcp.server.lowlevel import Server #, NotificationOptions
 
 # from .providers import PROVIDERS
 from .env import load_env_files
-from .tools import test_prompt, list_providers, get_tool_definitions
+from .tools import list_providers, get_tool_definitions, compare_prompts
 
 
 def create_server() -> Server:
@@ -25,11 +25,11 @@ def create_server() -> Server:
         name: str, arguments: dict
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         try:
-            if name == "test_prompt":
-                response = await test_prompt(arguments)
-                return [response]
-            elif name == "list_providers":
+            if name == "list_providers":
                 response = await list_providers()
+                return [response]
+            elif name == "compare_prompts":
+                response = await compare_prompts(arguments)
                 return [response]
             else:
                 return [types.TextContent(

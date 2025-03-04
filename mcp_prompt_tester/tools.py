@@ -1,91 +1,12 @@
 """Tool implementations for MCP Prompt Tester."""
 
 import json
-from typing import Dict, Any
+import asyncio
+from typing import Dict, Any, List
 
 from mcp import types
 
 from .providers import PROVIDERS, ProviderError
-
-
-async def test_prompt(arguments: dict) -> types.TextContent:
-    """Test a prompt with a specific provider and model."""
-    try:
-        # Check required arguments
-        required_args = ["provider", "model", "system_prompt", "user_prompt"]
-        for arg in required_args:
-            if arg not in arguments:
-                return types.TextContent(
-                    type="text",
-                    text=json.dumps({"isError": True, "error": f"Missing required argument '{arg}'"})
-                )
-        
-        # Extract arguments
-        provider = arguments["provider"]
-        model = arguments["model"]
-        system_prompt = arguments["system_prompt"]
-        user_prompt = arguments["user_prompt"]
-        temperature = arguments.get("temperature")
-        max_tokens = arguments.get("max_tokens")
-        top_p = arguments.get("top_p")
-        
-        # Additional kwargs from any remaining arguments
-        kwargs = {k: v for k, v in arguments.items() 
-                 if k not in ["provider", "model", "system_prompt", "user_prompt", 
-                            "temperature", "max_tokens", "top_p"]}
-        
-        # Validate provider
-        if provider not in PROVIDERS:
-            return types.TextContent(
-                type="text",
-                text=json.dumps({
-                    "isError": True,
-                    "error": f"Provider '{provider}' not supported. Available providers: {', '.join(PROVIDERS.keys())}"
-                })
-            )
-        
-        # Create provider instance
-        provider_class = PROVIDERS[provider]
-        provider_instance = provider_class()
-        
-        # Generate response
-        result = await provider_instance.generate(
-            model=model,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=top_p,
-            **kwargs
-        )
-        
-        return types.TextContent(
-            type="text",
-            text=json.dumps({
-                "isError": False,
-                "response": result["text"],
-                "model": result["model"],
-                "provider": provider,
-                "usage": result.get("usage", {}),
-                "costs": result.get("costs", {}),
-                "response_time": result.get("response_time", 0),
-                "metadata": {
-                    k: v for k, v in result.items() 
-                    if k not in ["text", "model", "usage", "costs", "response_time"]
-                }
-            })
-        )
-    
-    except ProviderError as e:
-        return types.TextContent(
-            type="text",
-            text=json.dumps({"isError": True, "error": f"Provider error: {str(e)}"})
-        )
-    except Exception as e:
-        return types.TextContent(
-            type="text",
-            text=json.dumps({"isError": True, "error": f"Unexpected error: {str(e)}"})
-        )
 
 
 async def list_providers() -> types.TextContent:
@@ -116,53 +37,152 @@ async def list_providers() -> types.TextContent:
     )
 
 
+async def compare_prompts(arguments: dict) -> types.TextContent:
+    """
+    Compares multiple prompts side-by-side, allowing different providers, models, and parameters.
+    """
+    try:
+        # 1. Input Validation and Configuration
+        comparisons = arguments.get("comparisons")
+        if not comparisons or not isinstance(comparisons, list):
+            return types.TextContent(
+                type="text",
+                text=json.dumps({"isError": True, "error": "The 'comparisons' argument must be a non-empty list."})
+            )
+
+        if not 1 <= len(comparisons) <= 4:
+            return types.TextContent(
+                type="text",
+                text=json.dumps({"isError": True, "error": "You can compare between 1 and 4 configurations."})
+            )
+
+        # 2. Prepare and Execute Comparison Runs (Asynchronously)
+        async def run_comparison(config: dict) -> dict:
+            """Helper function to run a single comparison."""
+            provider_name = config.get("provider")
+            model = config.get("model")
+            system_prompt = config.get("system_prompt")
+            user_prompt = config.get("user_prompt", "")  # Default to empty string if not provided
+            temperature = config.get("temperature")
+            max_tokens = config.get("max_tokens")
+            top_p = config.get("top_p")
+            
+            # Additional kwargs from any remaining arguments
+            kwargs = {k: v for k, v in config.items() 
+                    if k not in ["provider", "model", "system_prompt", "user_prompt", 
+                               "temperature", "max_tokens", "top_p"]}
+
+            # Check required parameters - allow empty string for user_prompt
+            if provider_name is None or model is None or system_prompt is None or user_prompt is None:
+                return {"isError": True, "error": "Missing required parameters in a comparison configuration."}
+
+            # Validate provider
+            if provider_name not in PROVIDERS:
+                return {"isError": True, "error": f"Provider '{provider_name}' not supported."}
+
+            try:
+                provider_class = PROVIDERS[provider_name]
+                provider_instance = provider_class()
+                
+                # Validate if model exists for this provider
+                default_models = provider_class.get_default_models()
+                model_exists = any(model_info["name"] == model for model_info in 
+                                 [model_data for model_type, model_data in default_models.items()])
+                
+                if not model_exists:
+                    return {"isError": True, "error": f"Model '{model}' not found for provider '{provider_name}'."}
+                
+                result = await provider_instance.generate(
+                    model=model,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    top_p=top_p,
+                    **kwargs
+                )
+                
+                return {
+                    "isError": False,
+                    "response": result["text"],
+                    "model": result["model"],
+                    "provider": provider_name,
+                    "usage": result.get("usage", {}),
+                    "costs": result.get("costs", {}),
+                    "response_time": result.get("response_time", 0),
+                    "metadata": {
+                        k: v for k, v in result.items()
+                        if k not in ["text", "model", "usage", "costs", "response_time"]
+                    }
+                }
+            except ProviderError as e:
+                return {"isError": True, "error": f"Provider error: {str(e)}"}
+            except Exception as e:
+                return {"isError": True, "error": f"Unexpected error: {str(e)}"}
+
+        # Use asyncio.gather to run all comparisons concurrently
+        results = await asyncio.gather(*(run_comparison(config) for config in comparisons))
+
+        # 3. Aggregate and Return Results
+        return types.TextContent(
+            type="text",
+            text=json.dumps({
+                "isError": False,
+                "results": results  # A list of results, one for each comparison
+            })
+        )
+
+    except Exception as e:
+        return types.TextContent(
+            type="text",
+            text=json.dumps({"isError": True, "error": f"Unexpected error: {str(e)}"})
+        )
+
+
 def get_tool_definitions() -> list[Dict[str, Any]]:
     """Return the tool definitions for the MCP server."""
     return [
-        {
-            "name": "test_prompt",
-            "description": "Test a prompt with the specified provider and model.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "provider": {
-                        "type": "string",
-                        "description": "The LLM provider to use (e.g., 'openai', 'anthropic')"
-                    },
-                    "model": {
-                        "type": "string",
-                        "description": "The model name to use"
-                    },
-                    "system_prompt": {
-                        "type": "string",
-                        "description": "The system prompt to use"
-                    },
-                    "user_prompt": {
-                        "type": "string",
-                        "description": "The user prompt to test"
-                    },
-                    "temperature": {
-                        "type": "number",
-                        "description": "Controls randomness (0.0 to 1.0)"
-                    },
-                    "max_tokens": {
-                        "type": "integer",
-                        "description": "Maximum number of tokens to generate"
-                    },
-                    "top_p": {
-                        "type": "number",
-                        "description": "Controls diversity via nucleus sampling"
-                    }
-                },
-                "required": ["provider", "model", "system_prompt", "user_prompt"]
-            }
-        },
         {
             "name": "list_providers",
             "description": "List available providers and their default models.",
             "parameters": {
                 "type": "object",
-                "properties": {}
+                "properties": {
+                    "random_string": {
+                        "type": "string",
+                        "description": "Dummy parameter for no-parameter tools"
+                    }
+                },
+                "required": ["random_string"]
+            }
+        },
+        {
+            "name": "compare_prompts",
+            "description": "Compare multiple prompts side-by-side, varying providers, models, and parameters.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "comparisons": {
+                        "type": "array",
+                        "description": "A list of comparison configurations (1 to 4 configurations).",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "provider": {"type": "string", "description": "The LLM provider."},
+                                "model": {"type": "string", "description": "The model name."},
+                                "system_prompt": {"type": "string", "description": "The system prompt."},
+                                "user_prompt": {"type": "string", "description": "The user prompt."},
+                                "temperature": {"type": "number", "description": "Temperature."},
+                                "max_tokens": {"type": "integer", "description": "Max tokens."},
+                                "top_p": {"type": "number", "description": "Top P."}
+                            },
+                            "required": ["provider", "model", "system_prompt", "user_prompt"]
+                        },
+                        "minItems": 1,
+                        "maxItems": 4
+                    }
+                },
+                "required": ["comparisons"]
             }
         }
     ]
