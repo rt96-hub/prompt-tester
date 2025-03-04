@@ -7,6 +7,7 @@ from typing import Dict, Any, List
 from mcp import types
 
 from .providers import PROVIDERS, ProviderError
+from .env import get_api_key
 
 
 async def list_providers() -> types.TextContent:
@@ -14,6 +15,10 @@ async def list_providers() -> types.TextContent:
     result = {}
     
     for provider_name, provider_class in PROVIDERS.items():
+        # Skip providers without API keys
+        if not get_api_key(provider_name, raise_error=False):
+            continue
+            
         # Get default models
         default_models = provider_class.get_default_models()
         
@@ -79,6 +84,12 @@ async def compare_prompts(arguments: dict) -> types.TextContent:
             # Validate provider
             if provider_name not in PROVIDERS:
                 return {"isError": True, "error": f"Provider '{provider_name}' not supported."}
+                
+            # Check if API key is available for this provider, but don't block custom models
+            # that might not be in the default list
+            api_key = get_api_key(provider_name, raise_error=False)
+            if not api_key:
+                return {"isError": True, "error": f"API key for provider '{provider_name}' is not available. Please set {provider_name.upper()}_API_KEY in your environment or .env file."}
 
             try:
                 provider_class = PROVIDERS[provider_name]
@@ -86,11 +97,16 @@ async def compare_prompts(arguments: dict) -> types.TextContent:
                 
                 # Validate if model exists for this provider
                 default_models = provider_class.get_default_models()
+                
+                # Check if model exists in default models, but don't block if it doesn't
+                # This allows testing custom or new models not in the default list
                 model_exists = any(model_info["name"] == model for model_info in 
                                  [model_data for model_type, model_data in default_models.items()])
                 
                 if not model_exists:
-                    return {"isError": True, "error": f"Model '{model}' not found for provider '{provider_name}'."}
+                    # Just log a warning, but continue anyway - the model might be valid
+                    # but not in our default list
+                    print(f"Warning: Model '{model}' not found in default models for provider '{provider_name}'. Attempting to use it anyway.")
                 
                 result = await provider_instance.generate(
                     model=model,
@@ -116,6 +132,7 @@ async def compare_prompts(arguments: dict) -> types.TextContent:
                     }
                 }
             except ProviderError as e:
+                # This will catch errors if the model doesn't exist or other provider-specific errors
                 return {"isError": True, "error": f"Provider error: {str(e)}"}
             except Exception as e:
                 return {"isError": True, "error": f"Unexpected error: {str(e)}"}

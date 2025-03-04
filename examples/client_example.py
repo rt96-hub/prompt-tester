@@ -146,7 +146,7 @@ async def main():
                 anthropic_result = await session.call_tool("compare_prompts", {
                     "comparisons": [{
                         "provider": "anthropic",
-                        "model": "claude-3-5-haiku-20241022",
+                        "model": "claude-3-7-sonnet-20250219",
                         "system_prompt": "You are a helpful assistant that explains complex topics simply.",
                         "user_prompt": "Explain quantum computing to a 10-year old.",
                         "temperature": 0.7,
