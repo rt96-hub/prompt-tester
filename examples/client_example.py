@@ -99,7 +99,7 @@ async def main():
                     "model": "gpt-4o-mini",
                     "system_prompt": "You are a helpful assistant that speaks like a pirate.",
                     "user_prompt": "Tell me about the weather today.",
-                    "temperature": 0.7,
+                    "temperature": 0.9,
                     "max_tokens": 150
                 })
                 
@@ -121,6 +121,15 @@ async def main():
                             print(f"  Prompt Tokens: {usage.get('prompt_tokens', 0)}")
                             print(f"  Completion Tokens: {usage.get('completion_tokens', 0)}")
                             print(f"  Total Tokens: {usage.get('total_tokens', 0)}")
+
+                        # Print costs if available
+                        if parsed.get("costs"):
+                            print("\nCosts:")
+                            costs = parsed["costs"]
+                            print(f"  Input Cost: {costs.get('input_cost', 0):.6f}")
+                            print(f"  Output Cost: {costs.get('output_cost', 0):.6f}")
+                            print(f"  Total Cost: {costs.get('total_cost', 0):.6f}")
+
                 else:
                     print("No response from OpenAI or error parsing response")
             except Exception as e:
@@ -134,7 +143,7 @@ async def main():
                     "model": "claude-3-5-haiku-20241022",
                     "system_prompt": "You are a helpful assistant that explains complex topics simply.",
                     "user_prompt": "Explain quantum computing to a 10-year old.",
-                    "temperature": 0.5,
+                    "temperature": 0.7,
                     "max_tokens": 200
                 })
                 
@@ -155,6 +164,15 @@ async def main():
                             usage = parsed["usage"]
                             print(f"  Input Tokens: {usage.get('input_tokens', 0)}")
                             print(f"  Output Tokens: {usage.get('output_tokens', 0)}")
+
+                        # Print costs if available
+                        if parsed.get("costs"):
+                            print("\nCosts:")
+                            costs = parsed["costs"]
+                            print(f"  Input Cost: {costs.get('input_cost', 0):.6f}")
+                            print(f"  Output Cost: $`{costs.get('output_cost', 0):.6f}")
+                            print(f"  Total Cost: {costs.get('total_cost', 0):.6f}")
+
                 else:
                     print("No response from Anthropic or error parsing response")
             except Exception as e:

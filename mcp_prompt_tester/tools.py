@@ -67,10 +67,11 @@ async def test_prompt(arguments: dict) -> types.TextContent:
                 "model": result["model"],
                 "provider": provider,
                 "usage": result.get("usage", {}),
+                "costs": result.get("costs", {}),
                 "response_time": result.get("response_time", 0),
                 "metadata": {
                     k: v for k, v in result.items() 
-                    if k not in ["text", "model", "usage", "response_time"]
+                    if k not in ["text", "model", "usage", "costs", "response_time"]
                 }
             })
         )
@@ -97,8 +98,14 @@ async def list_providers() -> types.TextContent:
         
         # Format for output
         models_list = [
-            {"type": model_type, "name": model_name}
-            for model_type, model_name in default_models.items()
+            {
+                "type": model_type,
+                "name": model_info["name"],
+                "input_cost": model_info["input_cost"],
+                "output_cost": model_info["output_cost"],
+                "description": model_info.get("description", "")
+            }
+            for model_type, model_info in default_models.items()
         ]
         
         result[provider_name] = models_list

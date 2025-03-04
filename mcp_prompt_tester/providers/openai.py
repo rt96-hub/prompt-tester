@@ -76,6 +76,33 @@ class OpenAIProvider(ProviderBase):
                 "response_time": response_time,
             }
             
+            # Calculate cost if the model is in our default models
+            default_models = self.get_default_models()
+            model_info = None
+            
+            # Find the model in our default models
+            for model_type, info in default_models.items():
+                if info["name"] == model:
+                    model_info = info
+                    break
+            
+            # If we have pricing data for this model, calculate and add costs
+            if model_info:
+                input_cost = (response.usage.prompt_tokens / 1_000_000) * model_info["input_cost"]
+                output_cost = (response.usage.completion_tokens / 1_000_000) * model_info["output_cost"]
+                total_cost = input_cost + output_cost
+                
+                result["costs"] = {
+                    "input_cost": input_cost,
+                    "output_cost": output_cost,
+                    "total_cost": total_cost,
+                    "currency": "USD",
+                    "rates": {
+                        "input_rate": model_info["input_cost"],
+                        "output_rate": model_info["output_cost"],
+                    }
+                }
+            
             return result
         
         except APIConnectionError as e:
@@ -90,10 +117,25 @@ class OpenAIProvider(ProviderBase):
     # TODO: We should call the API to get available models
     #  the only issue is that we don't have any information about the models themselves, quality, token limits, etc.
     @classmethod
-    def get_default_models(cls) -> Dict[str, str]:
-        """Get the default OpenAI models."""
+    def get_default_models(cls) -> Dict[str, Dict[str, Any]]:
+        """Get the default OpenAI models with pricing information."""
         return {
-            "fast": "gpt-4o-mini",
-            "smart": "o1-mini",
-            "vision": "gpt-4o",
+            "fast": {
+                "name": "gpt-4o-mini",
+                "input_cost": 0.15,  # $0.15 per million tokens
+                "output_cost": 0.60,  # $0.60 per million tokens
+                "description": "Fast and cost-effective model for most use cases"
+            },
+            "smart": {
+                "name": "o1-mini",
+                "input_cost": 1.1,  # $1.10 per million tokens
+                "output_cost": 4.4,  # $4.40 per million tokens
+                "description": "Advanced reasoning capabilities with superior performance"
+            },
+            "vision": {
+                "name": "gpt-4o",
+                "input_cost": 2.5,  # $2.50 per million tokens
+                "output_cost": 10.0,  # $10.00 per million tokens
+                "description": "Multimodal model that can process images and text"
+            },
         } 

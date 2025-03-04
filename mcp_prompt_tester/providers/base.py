@@ -42,11 +42,15 @@ class ProviderBase(ABC):
 
     @classmethod
     @abstractmethod
-    def get_default_models(cls) -> Dict[str, str]:
+    def get_default_models(cls) -> Dict[str, Dict[str, Any]]:
         """
         Get the default/recommended models for this provider.
         
         Returns:
-            A dictionary mapping model type to model name
+            A dictionary mapping model type to a dictionary containing:
+            - name: The model name
+            - input_cost: Cost per million tokens for input/prompt
+            - output_cost: Cost per million tokens for output/completion
+            - description: Brief description of the model's capabilities (optional)
         """
         pass 

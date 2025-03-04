@@ -79,6 +79,33 @@ class AnthropicProvider(ProviderBase):
                 "response_time": response_time,
             }
             
+            # Calculate cost if the model is in our default models
+            default_models = self.get_default_models()
+            model_info = None
+            
+            # Find the model in our default models
+            for model_type, info in default_models.items():
+                if info["name"] == model:
+                    model_info = info
+                    break
+            
+            # If we have pricing data for this model, calculate and add costs
+            if model_info:
+                input_cost = (response.usage.input_tokens / 1_000_000) * model_info["input_cost"]
+                output_cost = (response.usage.output_tokens / 1_000_000) * model_info["output_cost"]
+                total_cost = input_cost + output_cost
+                
+                result["costs"] = {
+                    "input_cost": input_cost,
+                    "output_cost": output_cost,
+                    "total_cost": total_cost,
+                    "currency": "USD",
+                    "rates": {
+                        "input_rate": model_info["input_cost"],
+                        "output_rate": model_info["output_cost"],
+                    }
+                }
+            
             return result
         
         except APIConnectionError as e:
@@ -93,10 +120,25 @@ class AnthropicProvider(ProviderBase):
     # TODO: We should call the API to get available models
     #  the only issue is that we don't have any information about the models themselves, quality, token limits, etc.
     @classmethod
-    def get_default_models(cls) -> Dict[str, str]:
-        """Get the default Anthropic models."""
+    def get_default_models(cls) -> Dict[str, Dict[str, Any]]:
+        """Get the default Anthropic models with pricing information."""
         return {
-            "fast": "claude-3-5-haiku-20241022",
-            "balanced": "claude-3-5-sonnet-20240620",
-            "smart": "claude-3-opus-20240229",
+            "fast": {
+                "name": "claude-3-5-haiku-20241022",
+                "input_cost": 0.8,  # $0.80 per million tokens
+                "output_cost": 4.0,  # $4.00 per million tokens
+                "description": "Fastest Claude model with strong reasoning capabilities"
+            },
+            "balanced": {
+                "name": "claude-3-5-sonnet-20240620",
+                "input_cost": 3.0,  # $3.00 per million tokens
+                "output_cost": 15.0,  # $15.00 per million tokens
+                "description": "Balanced performance and quality with strong reasoning"
+            },
+            "smart": {
+                "name": "claude-3-opus-20240229",
+                "input_cost": 15.0,  # $15.00 per million tokens
+                "output_cost": 75.0,  # $75.00 per million tokens
+                "description": "Most powerful Claude model with superior reasoning"
+            },
         } 
