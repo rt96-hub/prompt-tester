@@ -11,7 +11,7 @@ from langfuse.decorators import langfuse_context
 
 # from .providers import PROVIDERS
 from .env import load_env_files, get_langfuse_env_vars, is_langfuse_enabled
-from .tools import list_providers, compare_prompts, get_tool_definitions
+from .tools import list_providers, test_comparison, test_multiturn_conversation, get_tool_definitions
 
 
 def create_server() -> Server:
@@ -44,8 +44,11 @@ def create_server() -> Server:
             if name == "list_providers":
                 response = await list_providers()
                 return [response]
-            elif name == "compare_prompts":
-                response = await compare_prompts(arguments)
+            elif name == "test_comparison":
+                response = await test_comparison(arguments)
+                return [response]
+            elif name == "test_multiturn_conversation":
+                response = await test_multiturn_conversation(arguments)
                 return [response]
             else:
                 return [types.TextContent(

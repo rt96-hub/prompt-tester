@@ -94,7 +94,7 @@ async def main():
             # Test an OpenAI prompt
             print("\nTesting OpenAI prompt...")
             try:
-                openai_result = await session.call_tool("compare_prompts", {
+                openai_result = await session.call_tool("test_comparison", {
                     "comparisons": [{
                         "provider": "openai",
                         "model": "gpt-4o-mini",
@@ -143,7 +143,7 @@ async def main():
             # Test an Anthropic prompt
             print("\nTesting Anthropic prompt...")
             try:
-                anthropic_result = await session.call_tool("compare_prompts", {
+                anthropic_result = await session.call_tool("test_comparison", {
                     "comparisons": [{
                         "provider": "anthropic",
                         "model": "claude-3-7-sonnet-20250219",

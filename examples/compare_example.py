@@ -8,6 +8,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
+from tabulate import tabulate  # For nice tabular output
+from rich.console import Console
+from rich.table import Table
 
 
 # Load environment variables from .env file
@@ -41,20 +44,24 @@ def parse_response(result):
 
 
 def display_comparison_results(comparison_results):
-    """Display the comparison results in a simple formatted way using only standard library."""
-    # Print header
-    print("\n" + "=" * 80)
-    print("MODEL COMPARISON OVERVIEW".center(80))
-    print("=" * 80)
+    """Display the comparison results in a nicely formatted way."""
+    console = Console()
     
-    # Create a simple table header for the overview
-    header = f"{'Provider':<15} {'Model':<30} {'Response Time (s)':<20} {'Total Cost ($)':<15}"
-    print(header)
-    print("-" * 80)
+    # First, create a table for basic info
+    basic_table = Table(title="Model Comparison Overview")
+    basic_table.add_column("Provider", style="cyan")
+    basic_table.add_column("Model", style="magenta")
+    basic_table.add_column("Response Time (s)", style="green")
+    basic_table.add_column("Total Cost ($)", style="yellow")
     
     for i, result in enumerate(comparison_results):
         if result.get("isError", False):
-            print(f"Error #{i+1}".ljust(15), "N/A".ljust(30), "N/A".ljust(20), "N/A".ljust(15))
+            basic_table.add_row(
+                f"Error #{i+1}",
+                "N/A",
+                "N/A",
+                "N/A"
+            )
             continue
             
         provider = result.get("provider", "unknown")
@@ -65,54 +72,48 @@ def display_comparison_results(comparison_results):
         total_cost = costs.get("total_cost", 0)
         total_cost_str = f"{total_cost:.6f}"
         
-        row = f"{provider:<15} {model:<30} {response_time:<20} {total_cost_str:<15}"
-        print(row)
+        basic_table.add_row(provider, model, response_time, total_cost_str)
     
-    # Print detailed results for each model
+    console.print(basic_table)
+    
+    # Print each model's response
     for i, result in enumerate(comparison_results):
-        print("\n" + "=" * 80)
         if result.get("isError", False):
-            print(f"ERROR IN COMPARISON #{i+1}: {result.get('error', 'Unknown error')}")
-            print("=" * 80)
+            console.print(f"\n[bold red]Error in comparison #{i+1}:[/bold red] {result.get('error', 'Unknown error')}")
             continue
             
         provider = result.get("provider", "unknown")
         model = result.get("model", "unknown")
         
-        print(f"COMPARISON #{i+1}: {provider} - {model}")
-        print("=" * 80)
-        
-        print("\nRESPONSE:")
-        print("-" * 80)
-        print(result.get("response", "No response"))
+        console.print(f"\n[bold cyan]#{i+1}: {provider} - {model}[/bold cyan]")
+        console.print(f"[bold white]Response:[/bold white]")
+        console.print(result.get("response", "No response"))
         
         # Usage statistics
         usage = result.get("usage", {})
         if usage:
-            print("\nUSAGE STATISTICS:")
-            print("-" * 80)
+            console.print("\n[bold blue]Usage:[/bold blue]")
             
             # Handle different token formats from different providers
             if "prompt_tokens" in usage:  # OpenAI format
-                print(f"  Input Tokens: {usage.get('prompt_tokens', 0)}")
-                print(f"  Output Tokens: {usage.get('completion_tokens', 0)}")
-                print(f"  Total Tokens: {usage.get('total_tokens', 0)}")
+                console.print(f"  Input Tokens: {usage.get('prompt_tokens', 0)}")
+                console.print(f"  Output Tokens: {usage.get('completion_tokens', 0)}")
+                console.print(f"  Total Tokens: {usage.get('total_tokens', 0)}")
             else:  # Anthropic format
-                print(f"  Input Tokens: {usage.get('input_tokens', 0)}")
-                print(f"  Output Tokens: {usage.get('output_tokens', 0)}")
+                console.print(f"  Input Tokens: {usage.get('input_tokens', 0)}")
+                console.print(f"  Output Tokens: {usage.get('output_tokens', 0)}")
                 if "total_tokens" in usage:
-                    print(f"  Total Tokens: {usage.get('total_tokens', 0)}")
+                    console.print(f"  Total Tokens: {usage.get('total_tokens', 0)}")
         
         # Costs
         costs = result.get("costs", {})
         if costs:
-            print("\nCOSTS:")
-            print("-" * 80)
-            print(f"  Input Cost:  ${costs.get('input_cost', 0):.6f}")
-            print(f"  Output Cost: ${costs.get('output_cost', 0):.6f}")
-            print(f"  Total Cost:  ${costs.get('total_cost', 0):.6f}")
+            console.print("\n[bold yellow]Costs:[/bold yellow]")
+            console.print(f"  Input Cost: ${costs.get('input_cost', 0):.6f}")
+            console.print(f"  Output Cost: ${costs.get('output_cost', 0):.6f}")
+            console.print(f"  Total Cost: ${costs.get('total_cost', 0):.6f}")
         
-        print("\n" + "-" * 80)
+        console.print("\n" + "-" * 80)
 
 
 async def compare_same_prompt_different_models():
@@ -221,10 +222,10 @@ async def compare_temperature_variations():
 
 
 async def compare_single_prompt():
-    """Demonstrate using compare_prompts for single prompt testing (replacing the old test_prompt functionality)."""
+    """Demonstrate using test_comparison for single prompt testing (replacing the old test_prompt functionality)."""
     print("\nSingle prompt testing (replaces old test_prompt functionality)...")
     
-    # Create a single prompt configuration using compare_prompts
+    # Create a single prompt configuration using test_comparison
     comparison_config = {
         "comparisons": [
             {
@@ -322,7 +323,7 @@ async def main():
             # Initialize the connection
             await session.initialize()
             
-            # List available tools to verify the compare_prompts tool exists
+            # List available tools to verify the test_comparison tool exists
             raw_tools = await session.list_tools()
             
             # Print all available tools for debugging
@@ -365,10 +366,10 @@ async def main():
             print(f"\nExtracted tool names: {', '.join(tool_names)}")
             print("===========================\n")
                 
-            if "compare_prompts" not in tool_names:
-                print("Error: The 'compare_prompts' tool is not available. Please check your installation.")
+            if "test_comparison" not in tool_names:
+                print("Error: The 'test_comparison' tool is not available. Please check your installation.")
                 print("\nPossible issues:")
-                print("1. The MCP Prompt Tester server may not be running the latest version with the compare_prompts tool")
+                print("1. The MCP Prompt Tester server may not be running the latest version with the test_comparison tool")
                 print("2. The tools.py implementation may not have been properly updated")
                 print("3. The command to start the server might need adjustment")
                 print("\nTry manually running:")
@@ -415,7 +416,7 @@ async def main():
                 # Run the comparison
                 try:
                     print("\nRunning comparison...")
-                    comparison_result = await session.call_tool("compare_prompts", comparison_config)
+                    comparison_result = await session.call_tool("test_comparison", comparison_config)
                     parsed = parse_response(comparison_result)
                     
                     if parsed and not parsed.get("isError", False):

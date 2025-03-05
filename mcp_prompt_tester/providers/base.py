@@ -1,7 +1,7 @@
 """Base classes for LLM providers."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 
 class ProviderError(Exception):
@@ -38,6 +38,20 @@ class ProviderBase(ABC):
         Returns:
             A dictionary containing the generated response and metadata
         """
+        pass
+
+    @abstractmethod
+    async def generate_with_history(
+        self,
+        model: str,
+        system_prompt: str,
+        message_history: List[Dict[str, str]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Generate a response from the LLM using a message history."""
         pass
 
     @classmethod

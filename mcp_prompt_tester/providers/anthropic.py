@@ -1,7 +1,7 @@
 """Anthropic provider implementation."""
 
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from langfuse.decorators import observe
 from anthropic import Anthropic, APIConnectionError, APIError, RateLimitError
@@ -68,18 +68,12 @@ class AnthropicProvider(ProviderBase):
             
             generated_text = content_blocks[0].text
             
-            # Prepare the result
-            result = {
-                "text": generated_text,
-                "model": model,
-                "usage": {
-                    "input_tokens": response.usage.input_tokens,
-                    "output_tokens": response.usage.output_tokens,
-                },
-                "stop_reason": response.stop_reason,
-                "response_time": response_time,
-            }
+            # Usage data (Anthropic-specific)
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+            total_tokens = input_tokens + output_tokens
             
+            # Calculate the cost
             # Calculate cost if the model is in our default models
             default_models = self.get_default_models()
             model_info = None
@@ -92,19 +86,43 @@ class AnthropicProvider(ProviderBase):
             
             # If we have pricing data for this model, calculate and add costs
             if model_info:
-                input_cost = (response.usage.input_tokens / 1_000_000) * model_info["input_cost"]
-                output_cost = (response.usage.output_tokens / 1_000_000) * model_info["output_cost"]
+                input_cost = (input_tokens / 1_000_000) * model_info["input_cost"]
+                output_cost = (output_tokens / 1_000_000) * model_info["output_cost"]
                 total_cost = input_cost + output_cost
                 
-                result["costs"] = {
-                    "input_cost": input_cost,
-                    "output_cost": output_cost,
-                    "total_cost": total_cost,
-                    "currency": "USD",
-                    "rates": {
-                        "input_rate": model_info["input_cost"],
-                        "output_rate": model_info["output_cost"],
+                result = {
+                    "text": generated_text,
+                    "model": model,
+                    "usage": {
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "total_tokens": total_tokens,
+                    },
+                    "stop_reason": response.stop_reason,
+                    "response_time": response_time,
+                    "costs": {
+                        "input_cost": input_cost,
+                        "output_cost": output_cost,
+                        "total_cost": total_cost,
+                        "currency": "USD",
+                        "rates": {
+                            "input_rate": model_info["input_cost"],
+                            "output_rate": model_info["output_cost"],
+                        }
                     }
+                }
+            else:
+                # If we don't have pricing info for this model
+                result = {
+                    "text": generated_text,
+                    "model": model,
+                    "usage": {
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "total_tokens": total_tokens,
+                    },
+                    "stop_reason": response.stop_reason,
+                    "response_time": response_time,
                 }
             
             return result
@@ -117,6 +135,127 @@ class AnthropicProvider(ProviderBase):
             raise ProviderError(f"API error: {str(e)}")
         except Exception as e:
             raise ProviderError(f"Unexpected error: {str(e)}")
+
+    @observe(as_type="generation")
+    async def generate_with_history(
+        self,
+        model: str,
+        system_prompt: str,
+        message_history: List[Dict[str, str]],
+        temperature: Optional[float] = 0.7,
+        max_tokens: Optional[int] = 1000,
+        top_p: Optional[float] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Generate a response using Anthropic's API with a message history."""
+        try:
+            # Map the history to Anthropic's format
+            anthropic_messages = []
+            
+            # Add all messages from history
+            for message in message_history:
+                # Anthropic only supports 'user' and 'assistant' roles
+                if message["role"] in ["user", "assistant"]:
+                    anthropic_messages.append({
+                        "role": message["role"],
+                        "content": message["content"]
+                    })
+            
+            # Build the request params
+            request_params = {
+                "model": model,
+                "messages": anthropic_messages,
+                "system": system_prompt,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            }
+            
+            # Add top_p if provided
+            if top_p is not None:
+                request_params["top_p"] = top_p
+            
+            # Add any additional parameters
+            request_params.update(kwargs)
+            
+            # Record the start time
+            start_time = time.time()
+            
+            # Make the API call
+            response = self.client.messages.create(**request_params)
+            
+            # Calculate the response time
+            response_time = time.time() - start_time
+            
+            # Extract the result text
+            result_text = response.content[0].text
+            
+            # Usage data (Anthropic-specific)
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+            total_tokens = input_tokens + output_tokens
+            
+            # Calculate the cost
+            # Calculate cost if the model is in our default models
+            default_models = self.get_default_models()
+            model_info = None
+            
+            # Find the model in our default models
+            for model_type, info in default_models.items():
+                if info["name"] == model:
+                    model_info = info
+                    break
+            
+            # If we have pricing data for this model, calculate and add costs
+            if model_info:
+                input_cost = (input_tokens / 1_000_000) * model_info["input_cost"]
+                output_cost = (output_tokens / 1_000_000) * model_info["output_cost"]
+                total_cost = input_cost + output_cost
+                
+                result = {
+                    "text": result_text,
+                    "model": model,
+                    "usage": {
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "total_tokens": total_tokens,
+                    },
+                    "stop_reason": response.stop_reason,
+                    "response_time": response_time,
+                    "costs": {
+                        "input_cost": input_cost,
+                        "output_cost": output_cost,
+                        "total_cost": total_cost,
+                        "currency": "USD",
+                        "rates": {
+                            "input_rate": model_info["input_cost"],
+                            "output_rate": model_info["output_cost"],
+                        }
+                    }
+                }
+            else:
+                # If we don't have pricing info for this model
+                result = {
+                    "text": result_text,
+                    "model": model,
+                    "usage": {
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "total_tokens": total_tokens,
+                    },
+                    "stop_reason": response.stop_reason,
+                    "response_time": response_time,
+                }
+            
+            return result
+            
+        except APIConnectionError as e:
+            raise ProviderError(f"Network error connecting to Anthropic: {str(e)}")
+        except RateLimitError as e:
+            raise ProviderError(f"Anthropic rate limit exceeded: {str(e)}")
+        except APIError as e:
+            raise ProviderError(f"Anthropic API error: {str(e)}")
+        except Exception as e:
+            raise ProviderError(f"Unexpected error with Anthropic: {str(e)}")
 
     # TODO: We should call the API to get available models
     #  the only issue is that we don't have any information about the models themselves, quality, token limits, etc.

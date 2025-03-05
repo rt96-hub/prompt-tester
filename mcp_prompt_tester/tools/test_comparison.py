@@ -10,7 +10,7 @@ from ..env import get_api_key
 
 
 @observe()
-async def compare_prompts(arguments: dict) -> types.TextContent:
+async def test_comparison(arguments: dict) -> types.TextContent:
     """
     Compares multiple prompts side-by-side, allowing different providers, models, and parameters.
     """

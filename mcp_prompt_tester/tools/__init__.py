@@ -3,9 +3,10 @@
 from typing import Dict, Any, List
 
 from .list_providers import list_providers
-from .compare_prompts import compare_prompts
+from .test_comparison import test_comparison
+from .test_multiturn_conversation import test_multiturn_conversation
 
-__all__ = ["list_providers", "compare_prompts", "get_tool_definitions"]
+__all__ = ["list_providers", "test_comparison", "test_multiturn_conversation", "get_tool_definitions"]
 
 
 def get_tool_definitions() -> list[Dict[str, Any]]:
@@ -26,7 +27,7 @@ def get_tool_definitions() -> list[Dict[str, Any]]:
             }
         },
         {
-            "name": "compare_prompts",
+            "name": "test_comparison",
             "description": "Compare multiple prompts side-by-side, varying providers, models, and parameters.",
             "parameters": {
                 "type": "object",
@@ -52,6 +53,53 @@ def get_tool_definitions() -> list[Dict[str, Any]]:
                     }
                 },
                 "required": ["comparisons"]
+            }
+        },
+        {
+            "name": "test_multiturn_conversation",
+            "description": "Evaluate the quality of a multi-turn conversation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "description": "Operation mode: 'start', 'continue', 'get', 'list', or 'close'",
+                        "enum": ["start", "continue", "get", "list", "close"]
+                    },
+                    "conversation_id": {
+                        "type": "string",
+                        "description": "Unique ID for the conversation (required for continue, get, close modes)"
+                    },
+                    "provider": {
+                        "type": "string",
+                        "description": "The LLM provider (required for start mode only)"
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "The model name (required for start mode only)"
+                    },
+                    "system_prompt": {
+                        "type": "string",
+                        "description": "The system prompt (required for start mode only, ignored for continue mode)"
+                    },
+                    "user_prompt": {
+                        "type": "string",
+                        "description": "The user message (used in start and continue modes)"
+                    },
+                    "temperature": {
+                        "type": "number",
+                        "description": "Temperature parameter for the model (start mode only)"
+                    },
+                    "max_tokens": {
+                        "type": "integer",
+                        "description": "Maximum number of tokens to generate (start mode only)"
+                    },
+                    "top_p": {
+                        "type": "number",
+                        "description": "Top-p sampling parameter (start mode only)"
+                    }
+                },
+                "required": ["mode"],
             }
         }
     ] 
