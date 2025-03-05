@@ -171,3 +171,7 @@ cython_debug/
 .pypirc
 
 notes/
+
+# SQLite database files
+mcp_prompt_tester/data/
+*.db
