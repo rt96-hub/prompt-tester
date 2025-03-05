@@ -7,8 +7,10 @@ import mcp.types as types
 from mcp.server.lowlevel import Server #, NotificationOptions
 # from typing import Dict, List, Any, Optional
 
+from langfuse.decorators import langfuse_context
+
 # from .providers import PROVIDERS
-from .env import load_env_files
+from .env import load_env_files, get_langfuse_env_vars, is_langfuse_enabled
 from .tools import list_providers, get_tool_definitions, compare_prompts
 
 
@@ -16,6 +18,20 @@ def create_server() -> Server:
     """Create the MCP server instance."""
     # Load environment variables from .env files
     load_env_files()
+
+    # Initialize Langfuse
+    if is_langfuse_enabled():
+        langfuse_vars = get_langfuse_env_vars()
+        langfuse_context.configure(
+            secret_key=langfuse_vars["LANGFUSE_SECRET_KEY"],
+            public_key=langfuse_vars["LANGFUSE_PUBLIC_KEY"],
+            host=langfuse_vars["LANGFUSE_HOST"],
+            enabled=True
+        )
+    else:
+        langfuse_context.configure(
+            enabled=False
+        )
     
     # Create server
     app = Server("prompt-tester")

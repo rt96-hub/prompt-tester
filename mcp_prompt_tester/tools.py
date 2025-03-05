@@ -5,6 +5,7 @@ import asyncio
 from typing import Dict, Any, List
 
 from mcp import types
+from langfuse.decorators import observe
 
 from .providers import PROVIDERS, ProviderError
 from .env import get_api_key
@@ -41,7 +42,7 @@ async def list_providers() -> types.TextContent:
         text=json.dumps({"providers": result})
     )
 
-
+@observe()
 async def compare_prompts(arguments: dict) -> types.TextContent:
     """
     Compares multiple prompts side-by-side, allowing different providers, models, and parameters.

@@ -75,4 +75,36 @@ def get_api_key(provider: str, raise_error: bool = True) -> Optional[str]:
             f"Please set {env_var_name} in your environment or in a .env file."
         )
     
-    return api_key 
+    return api_key
+
+
+def get_langfuse_env_vars() -> Dict[str, Optional[str]]:
+    """
+    Get Langfuse environment variables if they exist.
+    
+    This function doesn't raise errors if variables are missing, making Langfuse
+    integration optional. The application can check the returned dict to determine
+    if Langfuse should be enabled.
+    
+    Returns:
+        Dict containing Langfuse configuration variables that are present in the environment
+    """
+    langfuse_vars = {
+        "LANGFUSE_PUBLIC_KEY": os.environ.get("LANGFUSE_PUBLIC_KEY"),
+        "LANGFUSE_SECRET_KEY": os.environ.get("LANGFUSE_SECRET_KEY"),
+        "LANGFUSE_HOST": os.environ.get("LANGFUSE_HOST"),
+    }
+    
+    # Return only the keys that are actually present
+    return {name: value for name, value in langfuse_vars.items() if value is not None}
+
+
+def is_langfuse_enabled() -> bool:
+    """
+    Check if Langfuse integration should be enabled based on environment variables.
+    
+    Returns:
+        True if both LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are set, False otherwise
+    """
+    langfuse_vars = get_langfuse_env_vars()
+    return all(key in langfuse_vars for key in ["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]) 

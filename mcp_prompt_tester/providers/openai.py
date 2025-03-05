@@ -3,7 +3,7 @@
 import time
 from typing import Dict, Any, Optional
 
-import openai
+from langfuse.decorators import observe
 from openai import OpenAI, APIError, APIConnectionError, RateLimitError
 
 from .base import ProviderBase, ProviderError
@@ -22,6 +22,7 @@ class OpenAIProvider(ProviderBase):
         except ValueError as e:
             raise ProviderError(str(e))
 
+    @observe(as_type="generation")
     async def generate(
         self,
         model: str,
