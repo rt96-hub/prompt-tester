@@ -1,46 +1,13 @@
-"""Tool implementations for MCP Prompt Tester."""
+"""Tool for comparing multiple prompts across different providers and models."""
 
 import json
 import asyncio
-from typing import Dict, Any, List
-
 from mcp import types
 from langfuse.decorators import observe
 
-from .providers import PROVIDERS, ProviderError
-from .env import get_api_key
+from ..providers import PROVIDERS, ProviderError
+from ..env import get_api_key
 
-
-async def list_providers() -> types.TextContent:
-    """List available providers and their default models."""
-    result = {}
-    
-    for provider_name, provider_class in PROVIDERS.items():
-        # Skip providers without API keys
-        if not get_api_key(provider_name, raise_error=False):
-            continue
-            
-        # Get default models
-        default_models = provider_class.get_default_models()
-        
-        # Format for output
-        models_list = [
-            {
-                "type": model_type,
-                "name": model_info["name"],
-                "input_cost": model_info["input_cost"],
-                "output_cost": model_info["output_cost"],
-                "description": model_info.get("description", "")
-            }
-            for model_type, model_info in default_models.items()
-        ]
-        
-        result[provider_name] = models_list
-    
-    return types.TextContent(
-        type="text",
-        text=json.dumps({"providers": result})
-    )
 
 @observe()
 async def compare_prompts(arguments: dict) -> types.TextContent:
@@ -154,54 +121,4 @@ async def compare_prompts(arguments: dict) -> types.TextContent:
         return types.TextContent(
             type="text",
             text=json.dumps({"isError": True, "error": f"Unexpected error: {str(e)}"})
-        )
-
-
-def get_tool_definitions() -> list[Dict[str, Any]]:
-    """Return the tool definitions for the MCP server."""
-    return [
-        {
-            "name": "list_providers",
-            "description": "List available providers and their default models.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "random_string": {
-                        "type": "string",
-                        "description": "Dummy parameter for no-parameter tools"
-                    }
-                },
-                "required": ["random_string"]
-            }
-        },
-        {
-            "name": "compare_prompts",
-            "description": "Compare multiple prompts side-by-side, varying providers, models, and parameters.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "comparisons": {
-                        "type": "array",
-                        "description": "A list of comparison configurations (1 to 4 configurations).",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "provider": {"type": "string", "description": "The LLM provider."},
-                                "model": {"type": "string", "description": "The model name."},
-                                "system_prompt": {"type": "string", "description": "The system prompt."},
-                                "user_prompt": {"type": "string", "description": "The user prompt."},
-                                "temperature": {"type": "number", "description": "Temperature."},
-                                "max_tokens": {"type": "integer", "description": "Max tokens."},
-                                "top_p": {"type": "number", "description": "Top P."}
-                            },
-                            "required": ["provider", "model", "system_prompt", "user_prompt"]
-                        },
-                        "minItems": 1,
-                        "maxItems": 4
-                    }
-                },
-                "required": ["comparisons"]
-            }
-        }
-    ]
-
+        ) 
